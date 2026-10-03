@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Use asset pointers in `src/assets/pieces` for board and legend piece artwork; the same piece silhouette must render consistently in both places while game rules stay in the engine.
