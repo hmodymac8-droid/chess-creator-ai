@@ -1,11 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { RotateCcw, Sparkles, ArrowLeft, CircleHelp } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   DEFAULT_RULES, GLYPH, initialBoard, movesFrom, apply, hasKing, bestMove, allMoves,
   type Board, type Rules, type Ply, type PieceType,
 } from "@/lib/engine";
 import { generateVariant } from "@/lib/variant.functions";
+import wK from "@/assets/pieces/wK.asset.json";
+import wQ from "@/assets/pieces/wQ.asset.json";
+import wR from "@/assets/pieces/wR.asset.json";
+import wB from "@/assets/pieces/wB.asset.json";
+import wN from "@/assets/pieces/wN.asset.json";
+import wP from "@/assets/pieces/wP.asset.json";
+import bK from "@/assets/pieces/bK.asset.json";
+import bQ from "@/assets/pieces/bQ.asset.json";
+import bR from "@/assets/pieces/bR.asset.json";
+import bB from "@/assets/pieces/bB.asset.json";
+import bN from "@/assets/pieces/bN.asset.json";
+import bP from "@/assets/pieces/bP.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -27,6 +41,10 @@ const EXAMPLES = [
   "الفيل يتحرك أيضاً كالحصان، والوزير لا يتحرك إلا ثلاث خانات",
 ];
 const FILES = "abcdefgh";
+const PIECES = {
+  w: { K: wK.url, Q: wQ.url, R: wR.url, B: wB.url, N: wN.url, P: wP.url },
+  b: { K: bK.url, Q: bQ.url, R: bR.url, B: bB.url, N: bN.url, P: bP.url },
+};
 
 function Index() {
   const gen = useServerFn(generateVariant);
@@ -85,84 +103,96 @@ function Index() {
 
   return (
     <main dir="rtl" className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-6xl px-4 py-10">
-        <header className="mb-8 text-center">
-          <p className="text-sm tracking-widest text-primary">مختبر القواعد</p>
-          <h1 className="font-display text-4xl md:text-5xl">مُصمم ألعاب الشطرنج المخصصة</h1>
-          <p className="mt-2 text-muted-foreground">صِف قواعدك بالكلام، وسيبني الذكاء الاصطناعي اللعبة ويلعب ضدك.</p>
+      <div className="mx-auto max-w-[1320px] px-4 pb-12 pt-5 sm:px-7 lg:px-10">
+        <header className="mb-7 flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-5">
+          <div className="flex items-center gap-3">
+            <span className="flex size-11 items-center justify-center rounded-md bg-primary text-2xl font-bold text-primary-foreground">♞</span>
+            <div>
+              <p className="text-[11px] font-bold text-primary">مختبر القواعد</p>
+              <h1 className="font-display text-xl font-semibold sm:text-2xl">مُصمم الشطرنج</h1>
+            </div>
+          </div>
+          <span className="text-xs text-muted-foreground sm:text-sm">قواعدك. رقعتك. لعبتك.</span>
         </header>
 
-        <div className="grid gap-8 lg:grid-cols-[1fr_auto]">
-          <section className="order-2 space-y-5 lg:order-1">
-            <div className="panel">
-              <label className="mb-2 block font-display text-lg">اكتب قواعدك</label>
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={4}
-                className="w-full resize-none rounded-md border border-input bg-background/60 p-3 outline-none focus:border-primary"
-              />
-              <div className="mt-2 flex flex-wrap gap-2">
-                {EXAMPLES.map((e) => (
-                  <button key={e} onClick={() => setPrompt(e)} className="chip">{e}</button>
-                ))}
+        <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.36fr)_minmax(340px,0.9fr)] xl:gap-12">
+          <section className="min-w-0">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="mb-1 text-xs text-muted-foreground">الرقعة / {rules.name}</p>
+                <h2 className="font-display text-xl font-semibold sm:text-2xl">العب ضد المحرك</h2>
               </div>
-              <button onClick={create} disabled={loading || prompt.trim().length < 3} className="btn-brass mt-4 w-full">
-                {loading ? "جارٍ صياغة القواعد…" : "ابتكر اللعبة"}
-              </button>
-              {err && <p className="mt-2 text-sm text-destructive">{err}</p>}
+              <Button onClick={() => reset()} variant="outline" size="sm" className="shrink-0 gap-2 bg-card" title="لعبة جديدة"><RotateCcw aria-hidden="true" /> لعبة جديدة</Button>
             </div>
-
-            <div className="panel">
-              <h2 className="font-display text-2xl text-primary">{rules.name}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{rules.description}</p>
-              <ul className="mt-4 space-y-2 text-sm">
-                {(Object.keys(rules.pieces) as PieceType[]).map((k) => (
-                  <li key={k} className="flex items-start gap-3">
-                    <span className="text-2xl leading-none text-primary">{GLYPH[k]}</span>
-                    <span>
-                      <b>{rules.pieces[k].name}</b>{" "}
-                      <span className="text-muted-foreground">(قيمة {k === "K" ? "∞" : rules.pieces[k].value})</span>
-                      <span className="block text-xs text-muted-foreground">{describe(rules.pieces[k].moves)}</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <button onClick={() => reset(DEFAULT_RULES)} className="chip mt-4">العودة للقواعد الكلاسيكية</button>
-            </div>
-          </section>
-
-          <section className="order-1 lg:order-2">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="font-display text-lg">
-                {winner ? (winner === "w" ? "انتصرت! أسقطت الملك 👑" : "المحرك أسقط ملكك")
-                  : noMoves ? "لا توجد حركات متاحة"
-                  : turn === "w" ? "دورك (الأبيض)" : "المحرك يفكر…"}
-              </span>
-              <button onClick={() => reset()} className="chip">لعبة جديدة</button>
-            </div>
-            <div dir="ltr" className="board">
+            <div className="mx-auto w-full max-w-[650px]">
+              <div className="mb-2 flex items-center justify-between rounded-md border border-border/60 bg-card px-3 py-2.5 sm:px-4">
+                <div className="flex items-center gap-2.5"><img src={bN.url} alt="" className="size-8" /><span className="text-sm font-semibold">المنافس الذكي</span></div>
+                <span className="text-xs text-muted-foreground">القطع الداكنة</span>
+              </div>
+              <div dir="ltr" className="board" role="grid" aria-label="رقعة الشطرنج">
               {board.map((row, r) => row.map((p, c) => {
                 const dark = (r + c) % 2 === 1;
                 const isT = targets.some((m) => m.tr === r && m.tc === c);
                 const isSel = sel && sel[0] === r && sel[1] === c;
                 const isLast = last && ((last.fr === r && last.fc === c) || (last.tr === r && last.tc === c));
                 return (
-                  <button
+                  <Button
                     key={`${r}${c}`}
                     onClick={() => click(r, c)}
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`${FILES[c]}${8-r}${p ? ` ${rules.pieces[p.t].name} ${p.c === "w" ? "أبيض" : "داكن"}` : " فارغة"}`}
                     className={`sq ${dark ? "sq-dark" : "sq-light"} ${isSel ? "sq-sel" : ""} ${isLast ? "sq-last" : ""}`}
                   >
-                    {p && <span className={p.c === "w" ? "pc-w" : "pc-b"}>{GLYPH[p.t]}</span>}
+                    {p && <img className="piece-image" src={PIECES[p.c][p.t]} alt="" draggable={false} />}
                     {isT && <span className={p ? "ring-capture" : "dot"} />}
-                  </button>
+                  </Button>
                 );
               }))}
-            </div>
-            <div className="mt-3 max-h-24 overflow-auto text-xs text-muted-foreground" dir="ltr">
-              {log.slice(0, 12).join("  ·  ")}
+              </div>
+              <div className="mt-2 flex items-center justify-between rounded-md border border-border/60 bg-card px-3 py-2.5 sm:px-4">
+                <div className="flex items-center gap-2.5"><img src={wN.url} alt="" className="size-8" /><span className="text-sm font-semibold">أنت <span className="font-normal text-muted-foreground">· الأبيض</span></span></div>
+                <span className="flex items-center gap-2 text-xs font-semibold text-primary"><span className="size-2 rounded-full bg-primary" />{winner ? (winner === "w" ? "انتصرت!" : "انتهت اللعبة") : noMoves ? "لا توجد حركات" : turn === "w" ? "دورك الآن" : "المحرك يفكر…"}</span>
+              </div>
+              {log.length > 0 && <div className="mt-4 border-t border-border/60 pt-3 text-xs text-muted-foreground"><span className="mb-1 block font-semibold text-foreground">آخر الحركات</span><div className="max-h-20 overflow-auto" dir="ltr">{log.slice(0, 12).join("  ·  ")}</div></div>}
             </div>
           </section>
+
+          <aside className="min-w-0 space-y-7 lg:pt-10">
+            <section>
+              <div className="mb-4 flex items-start gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/15 text-primary"><Sparkles className="size-5" aria-hidden="true" /></span>
+                <div><h2 className="font-display text-xl font-semibold">ابتكر نسختك</h2><p className="mt-0.5 text-sm text-muted-foreground">صِف حركة القطع بكلماتك، وابدأ اللعب.</p></div>
+              </div>
+              <label htmlFor="rule-prompt" className="mb-2 block text-sm font-semibold">قواعد اللعبة</label>
+              <textarea id="rule-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} className="w-full resize-none rounded-md border border-input bg-card p-3.5 text-sm leading-7 outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20" />
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {EXAMPLES.map((e, i) => <Button key={e} variant="outline" size="sm" onClick={() => setPrompt(e)} className="h-auto max-w-full whitespace-normal border-border/70 bg-card px-2.5 py-1.5 text-right text-xs leading-5 text-muted-foreground hover:text-foreground">مثال {i + 1} <ArrowLeft className="size-3" aria-hidden="true" /></Button>)}
+              </div>
+              <Button onClick={create} disabled={loading || prompt.trim().length < 3} className="mt-4 h-11 w-full text-sm font-bold">{loading ? "جارٍ صياغة القواعد…" : <><Sparkles aria-hidden="true" /> ابتكر اللعبة</>}</Button>
+              {err && <p role="alert" className="mt-2 text-sm text-destructive">{err}</p>}
+            </section>
+
+            <section className="border-t border-border/60 pt-5">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div><p className="mb-1 text-xs font-semibold text-primary">النسخة الحالية</p><h2 className="font-display text-xl font-semibold">{rules.name}</h2></div>
+                <CircleHelp className="mt-1 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </div>
+              <p className="text-sm leading-6 text-muted-foreground">{rules.description}</p>
+              <ul className="mt-4 divide-y divide-border/60 border-y border-border/60">
+                {(Object.keys(rules.pieces) as PieceType[]).map((k) => (
+                  <li key={k} className="flex items-start gap-3 py-2.5">
+                    <img src={PIECES.w[k]} alt="" className="size-9 shrink-0 rounded-sm bg-secondary/50 p-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2 text-sm"><strong className="font-semibold">{rules.pieces[k].name}</strong><span className="text-xs text-muted-foreground">{k === "K" ? "∞" : rules.pieces[k].value}</span></div>
+                      <p className="mt-0.5 break-words text-xs leading-5 text-muted-foreground">{describe(rules.pieces[k].moves)}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <Button variant="ghost" onClick={() => reset(DEFAULT_RULES)} className="mt-3 px-0 text-xs text-muted-foreground hover:bg-transparent hover:text-primary"><RotateCcw aria-hidden="true" /> العودة للقواعد الكلاسيكية</Button>
+            </section>
+          </aside>
         </div>
       </div>
     </main>
