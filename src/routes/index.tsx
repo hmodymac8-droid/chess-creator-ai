@@ -142,7 +142,7 @@ function Index() {
                     variant="ghost"
                     size="icon"
                     aria-label={`${FILES[c]}${8-r}${p ? ` ${rules.pieces[p.t].name} ${p.c === "w" ? "أبيض" : "داكن"}` : " فارغة"}`}
-                    className={`sq ${dark ? "sq-dark" : "sq-light"} ${isSel ? "sq-sel" : ""} ${isLast ? "sq-last" : ""}`}
+                    className={`sq !size-full !rounded-none ${dark ? "sq-dark" : "sq-light"} ${isSel ? "sq-sel" : ""} ${isLast ? "sq-last" : ""}`}
                   >
                     {p && <img className="piece-image" src={PIECES[p.c][p.t]} alt="" draggable={false} />}
                     {isT && <span className={p ? "ring-capture" : "dot"} />}
