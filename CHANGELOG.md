@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.1.0
+
+### Added
+- Custom starting positions: a variant can add, remove or rearrange pieces (e.g. "only knights, bishops and pawns").
+- Kingless variants: without a king in the setup, capturing every enemy piece wins.
+- The variant panel shows the goal and lists only the pieces in play.
+- Engine tests for setups, win conditions and promotion.
+
+### Changed
+- Pawns promote to the strongest piece in play instead of always a queen.
+- AI generation asks for JSON mode, low reasoning effort and a larger token budget, and falls back to a plain request when the provider rejects those options. This makes it reliable with thinking models such as Gemini 2.5.
+- Replies with code fences, comments or trailing commas are accepted, with one repair round when the reply is still invalid or truncated.
+- A busy AI service is reported separately, and the underlying reason is shown under the error message.
+- Documented the free Google Gemini setup.
+
 ## v1.0.0
 
 First standalone release.
