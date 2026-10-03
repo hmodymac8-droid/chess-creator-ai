@@ -135,7 +135,7 @@ function Play() {
         <div className="mx-auto w-full max-w-[620px] space-y-2">
           <Bar side={opp} />
           <div dir="ltr" className="board" role="grid" aria-label="رقعة الشطرنج">
-            {rows.map((r) => (me === "b" ? [...rows].reverse() : rows).map((c) => {
+            {rows.map((r) => rows.map((c) => {
               const p = g.board[r]![c];
               const dark = (r + c) % 2 === 1;
               const isT = targets.some((m) => m.tr === r && m.tc === c);
