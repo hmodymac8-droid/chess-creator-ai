@@ -79,7 +79,7 @@ function Play() {
   useEffect(() => {
     if (!g || g.status !== "playing" || g.minutes === 0 || !g.moved_at || !me) return;
     if (live(g.turn) <= 0) {
-      supabase.from("games").update({ status: "finished", winner: g.turn === "w" ? "b" : "w", [g.turn === "w" ? "clock_w" : "clock_b"]: 0 }).eq("id", g.id).eq("status", "playing").then();
+      supabase.from("games").update({ status: "finished", winner: g.turn === "w" ? "b" : "w", ...(g.turn === "w" ? { clock_w: 0 } : { clock_b: 0 }) }).eq("id", g.id).eq("status", "playing").then();
     }
   }, [now]);
 
