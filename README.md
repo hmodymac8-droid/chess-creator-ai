@@ -46,7 +46,7 @@ bun run dev            # http://localhost:3000
 | `AI_MODEL` | no | Model name (default `gpt-5-mini`) |
 | `DATABASE_URL` | for migrations | Postgres connection string used by `drizzle-kit` |
 
-**Free AI option:** create a key at [Google AI Studio](https://aistudio.google.com/apikey) (no card required) and set `AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/` and `AI_MODEL=gemini-2.5-flash`.
+**Free AI option:** create a key at [Google AI Studio](https://aistudio.google.com/apikey) (no card required) and set `AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/` and `AI_MODEL=gemini-flash-latest`.
 
 If `AI_API_KEY` is missing, the app still works: classic chess, the examples you already loaded, and online play all run. Only generating a new variant shows a "not configured" message.
 
