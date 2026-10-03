@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { RotateCcw, Sparkles, ArrowLeft, CircleHelp } from "lucide-react";
+import { RotateCcw, Sparkles, CircleHelp, Users, LogIn, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DEFAULT_RULES, initialBoard, movesFrom, apply, hasKing, bestMove, allMoves,
@@ -9,6 +9,11 @@ import {
 } from "@/lib/engine";
 import { generateVariant } from "@/lib/variant.functions";
 import { playSound } from "@/lib/sounds";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { AuthForm } from "@/components/AuthForm";
+
+type Saved = { id: string; title: string; prompt: string; rules: Rules };
 import wK from "@/assets/pieces/wK.asset.json";
 import wQ from "@/assets/pieces/wQ.asset.json";
 import wR from "@/assets/pieces/wR.asset.json";
@@ -81,6 +86,16 @@ function Index() {
   const [inc, setInc] = useState(0);
   const [clock, setClock] = useState({ w: 600000, b: 600000 });
   const [flag, setFlag] = useState<"w" | "b" | null>(null);
+  const { user, username, ready } = useAuth();
+  const navigate = useNavigate();
+  const [showAuth, setShowAuth] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [mine, setMine] = useState<Saved[]>([]);
+  useEffect(() => {
+    if (!user) { setMine([]); return; }
+    supabase.from("variants").select("id, title, prompt, rules").order("created_at", { ascending: false })
+      .then(({ data }) => setMine((data ?? []) as unknown as Saved[]));
+  }, [user?.id]);
 
   const kingWinner = !hasKing(board, "b") ? "w" : !hasKing(board, "w") ? "b" : null;
   const winner = kingWinner ?? (flag ? (flag === "w" ? "b" : "w") : null);
@@ -150,9 +165,27 @@ function Index() {
     try {
       const res = await gen({ data: { prompt } });
       if (res.error || !res.rules) setErr(res.error ?? "خطأ غير معروف");
-      else reset(res.rules);
+      else {
+        reset(res.rules);
+        if (user) {
+          const { data } = await supabase.from("variants").insert({ title: res.rules.name, prompt, rules: res.rules as never }).select("id, title, prompt, rules").single();
+          if (data) setMine((m) => [data as unknown as Saved, ...m]);
+        }
+      }
     } catch { setErr("تعذّر الاتصال. حاول مجدداً."); }
     setLoading(false);
+  };
+
+  const invite = async () => {
+    if (!user) { setShowAuth(true); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    setInviting(true); setErr("");
+    const { data, error } = await supabase.from("games").insert({
+      host_name: username, rules: rules as never, board: initialBoard() as never,
+      minutes: mins, inc, clock_w: mins * 60000, clock_b: mins * 60000,
+    }).select("id").single();
+    setInviting(false);
+    if (error || !data) { setErr("تعذّر إنشاء الدعوة"); return; }
+    navigate({ to: "/play/$id", params: { id: data.id } });
   };
 
   const Clock = ({ side }: { side: "w" | "b" }) => mins === 0 ? null : (
@@ -172,7 +205,12 @@ function Index() {
               <h1 className="font-display text-xl font-semibold sm:text-2xl">مُصمم الشطرنج</h1>
             </div>
           </div>
-          <span className="text-xs text-muted-foreground sm:text-sm">قواعدك. رقعتك. لعبتك.</span>
+          {user ? (
+            <div className="flex items-center gap-2 text-sm"><span className="font-semibold">{username}</span><Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut()} className="gap-1.5 text-muted-foreground"><LogOut aria-hidden="true" /> خروج</Button></div>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => setShowAuth((s) => !s)} className="gap-1.5 bg-card"><LogIn aria-hidden="true" /> تسجيل الدخول</Button>
+          )}
+          {showAuth && !user && <div className="w-full sm:mr-auto sm:w-80"><AuthForm onDone={() => setShowAuth(false)} /></div>}
         </header>
 
         <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.36fr)_minmax(340px,0.9fr)] xl:gap-12">
@@ -226,10 +264,15 @@ function Index() {
               </div>
               <label htmlFor="rule-prompt" className="mb-2 block text-sm font-semibold">قواعد اللعبة</label>
               <textarea id="rule-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} className="w-full resize-none rounded-md border border-input bg-card p-3.5 text-sm leading-7 outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20" />
-              <label htmlFor="examples" className="mb-1.5 mt-3 block text-sm font-semibold">قائمة الأمثلة ({EXAMPLES.length})</label>
-              <select id="examples" defaultValue="" onChange={(e) => e.target.value !== "" && pickExample(Number(e.target.value))} className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus:border-primary">
+              <label htmlFor="examples" className="mb-1.5 mt-3 block text-sm font-semibold">قائمة الأمثلة ({EXAMPLES.length + mine.length})</label>
+              <select id="examples" defaultValue="" onChange={(e) => {
+                const v = e.target.value;
+                if (v.startsWith("s:")) { const s = mine.find((m) => m.id === v.slice(2)); if (s) { setPrompt(s.prompt); reset(s.rules); } }
+                else if (v !== "") pickExample(Number(v));
+              }} className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus:border-primary">
                 <option value="" disabled>اختر مثالاً…</option>
-                {EXAMPLES.map((e, i) => <option key={e.title} value={i}>{i + 1}. {e.title}</option>)}
+                {mine.length > 0 && <optgroup label="أمثلتي (خاصة بك)">{mine.map((m) => <option key={m.id} value={`s:${m.id}`}>★ {m.title}</option>)}</optgroup>}
+                <optgroup label="أمثلة جاهزة">{EXAMPLES.map((e, i) => <option key={e.title} value={i}>{i + 1}. {e.title}</option>)}</optgroup>
               </select>
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <div>
@@ -247,6 +290,8 @@ function Index() {
               </div>
               <Button onClick={create} disabled={loading || prompt.trim().length < 3} className="mt-4 h-11 w-full text-sm font-bold">{loading ? "جارٍ صياغة القواعد…" : <><Sparkles aria-hidden="true" /> ابتكر اللعبة</>}</Button>
               {err && <p role="alert" className="mt-2 text-sm text-destructive">{err}</p>}
+              <Button onClick={invite} disabled={inviting} variant="outline" className="mt-2 h-11 w-full gap-2 bg-card text-sm font-bold"><Users aria-hidden="true" /> {inviting ? "جارٍ تجهيز الدعوة…" : "العب مع صديق أونلاين"}</Button>
+              {!user && ready && <p className="mt-2 text-xs text-muted-foreground">سجّل الدخول لحفظ أمثلتك ودعوة أصدقائك.</p>}
             </section>
 
             <section className="border-t border-border/60 pt-5">
