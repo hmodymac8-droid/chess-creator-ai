@@ -61,7 +61,10 @@ function Index() {
   const winner = !hasKing(board, "b") ? "w" : !hasKing(board, "w") ? "b" : null;
   const targets = useMemo(() => (sel ? movesFrom(board, rules, sel[0], sel[1]) : []), [sel, board, rules]);
 
-  const note = (m: Ply, b: Board) => `${b[m.fr]?.[m.fc] ? rules.pieces[b[m.fr]![m.fc]!.t].name : "قطعة"} ${FILES[m.fc]}${8 - m.fr}→${FILES[m.tc]}${8 - m.tr}`;
+  const note = (m: Ply, b: Board) => {
+    const piece = b[m.fr]?.[m.fc];
+    return `${piece ? rules.pieces[piece.t].name : "قطعة"} ${FILES[m.fc]}${8 - m.fr}→${FILES[m.tc]}${8 - m.tr}`;
+  };
 
   const reset = (r = rules) => {
     setRules(r); setBoard(initialBoard()); setSel(null); setTurn("w"); setLast(null); setLog([]);
@@ -205,9 +208,10 @@ function describe(moves: Rules["pieces"]["K"]["moves"]) {
     const unique = [...new Set(dirs)];
     const diagonal = unique.length === 1 && unique[0] === "1,1";
     const straight = unique.every((v) => v === "1,0" || v === "0,1");
+    const queen = unique.includes("1,1") && unique.includes("1,0") && unique.includes("0,1") && unique.length === 3;
     const knight = unique.every((v) => v === "1,2" || v === "2,1");
     const forward = unique.length === 1 && unique[0] === "0,1";
-    const parts = [diagonal ? "قطرياً" : straight ? (forward ? "للأمام" : "أفقياً وعمودياً") : knight ? "على شكل حرف L" : `باتجاهات ${m.vectors.map(([x, y]) => `(${x}،${y})`).join(" ")}`];
+    const parts = [queen ? "في جميع الاتجاهات" : diagonal ? "قطرياً" : straight ? (forward ? "للأمام" : "أفقياً وعمودياً") : knight ? "على شكل حرف L" : `باتجاهات ${m.vectors.map(([x, y]) => `(${x}،${y})`).join(" ")}`];
     if (m.kind === "slide" && m.maxRange) parts.push(`حتى ${m.maxRange} خانات`);
     else if (m.kind === "leap" && !knight) parts.push("خانة واحدة");
     if (m.mode === "move") parts.push("بلا أسر");
