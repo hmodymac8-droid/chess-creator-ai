@@ -109,7 +109,7 @@
   .panel { @apply rounded-lg border bg-card p-5; box-shadow: 0 10px 30px -15px oklch(0 0 0 / 60%); }
   .chip { @apply rounded-full border px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary; }
   .btn-brass { @apply rounded-md bg-primary px-4 py-3 font-display text-lg text-primary-foreground transition hover:brightness-110 disabled:opacity-50; }
-  .board { display: grid; grid-template-columns: repeat(8, 1fr); width: min(92vw, 560px); aspect-ratio: 1; border: 10px solid var(--secondary); border-radius: 6px; box-shadow: 0 25px 50px -20px oklch(0 0 0 / 80%); }
+  .board { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); width: min(92vw, 560px); aspect-ratio: 1; border: 10px solid var(--secondary); border-radius: 6px; box-shadow: 0 25px 50px -20px oklch(0 0 0 / 80%); }
   .sq { position: relative; display: flex; align-items: center; justify-content: center; font-size: min(9vw, 52px); line-height: 1; }
   .sq-light { background: var(--sq-light); }
   .sq-dark { background: var(--sq-dark); }
