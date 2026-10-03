@@ -52,7 +52,12 @@ function parseLoose(text: string): Record<string, unknown> {
 
 const statusOf = (e: unknown) =>
   (e as { statusCode?: number })?.statusCode ?? (e as { lastError?: { statusCode?: number } })?.lastError?.statusCode;
-const messageOf = (e: unknown) => String((e as { message?: string })?.message ?? e).slice(0, 300);
+const messageOf = (e: unknown) => {
+  const err = (e as { lastError?: unknown })?.lastError ?? e;
+  const { message, statusCode, url } = (err ?? {}) as { message?: string; statusCode?: number; url?: string };
+  // url is the endpoint (no credentials; the key travels in a header).
+  return [statusCode, message ?? String(err), url].filter(Boolean).join(" · ").slice(0, 300);
+};
 
 export const generateVariant = createServerFn({ method: "POST" })
   .inputValidator((d) =>
@@ -104,7 +109,9 @@ export const generateVariant = createServerFn({ method: "POST" })
       try {
         reply = await askSafe(SYSTEM, prompt, true);
       } catch (e) {
-        if (statusOf(e) !== 400) throw e;
+        // Endpoints that reject JSON mode or reasoning options answer 400 or 404 (Gemini); retry plain.
+        const s = statusOf(e);
+        if (s == null || s < 400 || s >= 500 || s === 401 || s === 402 || s === 429) throw e;
         reply = await askSafe(SYSTEM, prompt, false);
       }
     } catch (e: unknown) {

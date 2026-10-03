@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.1.1
+
+### Fixed
+- AI generation now falls back to a plain request when the provider rejects JSON mode or reasoning options with any 4xx error (Gemini answers 404), not only 400.
+- The error detail now includes the HTTP status and the endpoint URL.
+
 ## v1.1.0
 
 ### Added
