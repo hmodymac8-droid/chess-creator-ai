@@ -36,6 +36,11 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+const FILES = "abcdefgh";
+const PIECES = {
+  w: { K: wK.url, Q: wQ.url, R: wR.url, B: wB.url, N: wN.url, P: wP.url },
+  b: { K: bK.url, Q: bQ.url, R: bR.url, B: bB.url, N: bN.url, P: bP.url },
+};
 const CLASSIC = "الشطرنج الكلاسيكي";
 const EXAMPLES: { title: string; text: string }[] = [
   { title: CLASSIC, text: "الشطرنج الكلاسيكي بقواعده المعروفة" },
