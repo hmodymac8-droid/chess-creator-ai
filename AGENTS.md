@@ -10,3 +10,5 @@
 <!-- LOVABLE:END -->
 
 - Use asset pointers in `src/assets/pieces` for board and legend piece artwork; the same piece silhouette must render consistently in both places while game rules stay in the engine.
+- Accounts use name+password mapped to a synthetic email (src/lib/auth.tsx); usernames live in profiles — keeps sign-in email-free.
+- Online games are rows in `games` synced via realtime; each game copies its rules so the friend can play without access to the owner's private variants.
