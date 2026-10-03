@@ -1,6 +1,6 @@
 {
   "name": "chess-creator-ai",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Invent new chess variants by describing them in plain language — AI turns your rules into a playable game.",
   "repository": {
     "type": "git",

@@ -35,56 +35,119 @@ const SetupS = z
   .refine((s) => [...s.back, ...s.pawns].some(Boolean), "setup has no pieces");
 
 export type VariantError = "aiNotConfigured" | "rateLimited" | "credits" | "unavailable" | "parse";
+type Result = { rules?: Rules; error?: VariantError; detail?: string };
+
+/** Parse a model reply that should be JSON but may carry fences, prose, comments or trailing commas. */
+function parseLoose(text: string): Record<string, unknown> {
+  const t = text.replace(/```(?:json)?/gi, "");
+  const i = t.indexOf("{"), j = t.lastIndexOf("}");
+  if (i < 0 || j <= i) throw new Error(`no JSON object in reply: ${text.slice(0, 120)}`);
+  const body = t.slice(i, j + 1);
+  try {
+    return JSON.parse(body);
+  } catch {
+    return JSON.parse(body.replace(/^\s*\/\/.*$/gm, "").replace(/,\s*([}\]])/g, "$1"));
+  }
+}
+
+const statusOf = (e: unknown) =>
+  (e as { statusCode?: number })?.statusCode ?? (e as { lastError?: { statusCode?: number } })?.lastError?.statusCode;
+const messageOf = (e: unknown) => String((e as { message?: string })?.message ?? e).slice(0, 300);
 
 export const generateVariant = createServerFn({ method: "POST" })
   .inputValidator((d) =>
     z.object({ prompt: z.string().min(3).max(1000), lang: z.enum(["en", "ar"]).default("en") }).parse(d),
   )
-  .handler(async ({ data }): Promise<{ rules?: Rules; error?: VariantError }> => {
+  .handler(async ({ data }): Promise<Result> => {
     const apiKey = process.env["AI_API_KEY"];
     if (!apiKey) return { error: "aiNotConfigured" };
     const { createOpenAI } = await import("@ai-sdk/openai");
-    const { generateText } = await import("ai");
+    const { generateText, Output } = await import("ai");
     // Any OpenAI-compatible endpoint works (OpenAI, Gemini, OpenRouter, Anthropic's compat API, local servers…).
     const baseURL = process.env["AI_BASE_URL"];
     const provider = createOpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
-    let text: string;
+    const model = provider.chat(process.env["AI_MODEL"] || "gpt-5-mini");
+    const prompt = `OUTPUT LANGUAGE: ${LANG_NAMES[data.lang]}\n\n${data.prompt}`;
+
+    // Thinking models (e.g. Gemini 2.5) can spend the whole token budget reasoning and return
+    // truncated JSON, so ask for JSON mode, low effort and a generous budget. Some endpoints reject
+    // these extras; fall back to a plain request if so.
+    const ask = async (system: string, userPrompt: string, extras: boolean) => {
+      const r = await generateText({
+        model,
+        system,
+        prompt: userPrompt,
+        maxRetries: 2, // free tiers often return 429/503 transiently; the SDK backs off between retries
+        maxOutputTokens: 8192,
+        ...(extras
+          ? {
+              output: Output.json(),
+              providerOptions: { openai: { reasoningEffort: process.env["AI_REASONING_EFFORT"] || "low" } },
+            }
+          : {}),
+      });
+      return { text: r.text, truncated: r.finishReason === "length" };
+    };
+    // JSON mode can throw NoObjectGeneratedError on a bad reply; keep its text for our own parser.
+    const askSafe = async (system: string, userPrompt: string, extras: boolean) => {
+      try {
+        return await ask(system, userPrompt, extras);
+      } catch (e) {
+        const t = (e as { text?: string; finishReason?: string });
+        if (typeof t.text === "string" && statusOf(e) == null) return { text: t.text, truncated: t.finishReason === "length" };
+        throw e;
+      }
+    };
+
+    let reply: { text: string; truncated: boolean };
     try {
-      ({ text } = await generateText({
-        model: provider.chat(process.env["AI_MODEL"] || "gpt-5-mini"),
-        system: SYSTEM,
-        prompt: `OUTPUT LANGUAGE: ${LANG_NAMES[data.lang]}\n\n${data.prompt}`,
-        // Free tiers (e.g. Gemini) often return 429/503 transiently; the SDK backs off between retries.
-        maxRetries: 2,
-      }));
+      try {
+        reply = await askSafe(SYSTEM, prompt, true);
+      } catch (e) {
+        if (statusOf(e) !== 400) throw e;
+        reply = await askSafe(SYSTEM, prompt, false);
+      }
     } catch (e: unknown) {
-      const status = (e as { statusCode?: number; lastError?: { statusCode?: number } })?.statusCode
-        ?? (e as { lastError?: { statusCode?: number } })?.lastError?.statusCode;
       console.error(e);
+      const status = statusOf(e);
       if (status === 429) return { error: "rateLimited" };
       if (status === 402) return { error: "credits" };
-      return { error: "unavailable" };
+      return { error: "unavailable", detail: messageOf(e) };
     }
+
+    let raw: Record<string, unknown>;
     try {
-      const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
-      const raw = JSON.parse(json);
-      const pieces = { ...DEFAULT_RULES.pieces };
-      for (const k of KEYS) {
-        const p = PieceS.safeParse(raw?.pieces?.[k]);
-        if (p.success && p.data.moves.length) pieces[k] = p.data;
+      raw = parseLoose(reply.text);
+    } catch (first: unknown) {
+      // One repair round: hand the broken reply back and ask for valid JSON only.
+      console.error("variant JSON parse failed", first, reply.text);
+      try {
+        const fixed = await askSafe(
+          SYSTEM,
+          `${prompt}\n\nYour previous reply was ${reply.truncated ? "cut off" : "not valid JSON"}. Reply again with ONLY the complete, valid JSON object, keeping it compact.`,
+          false,
+        );
+        raw = parseLoose(fixed.text);
+      } catch (e: unknown) {
+        console.error(e);
+        return { error: "parse", detail: reply.truncated ? "AI reply was truncated" : messageOf(first) };
       }
-      pieces.K = { ...pieces.K, value: 1000 };
-      const setup = SetupS.safeParse(raw?.setup);
-      return {
-        rules: {
-          name: String(raw.name ?? (data.lang === "ar" ? "نسخة مخصصة" : "Custom Variant")),
-          description: String(raw.description ?? data.prompt),
-          pieces,
-          ...(setup.success ? { setup: setup.data } : {}),
-        },
-      };
-    } catch (e: unknown) {
-      console.error(e, text);
-      return { error: "parse" };
     }
+
+    const pieces = { ...DEFAULT_RULES.pieces };
+    const rawPieces = (raw["pieces"] ?? {}) as Record<string, unknown>;
+    for (const k of KEYS) {
+      const p = PieceS.safeParse(rawPieces[k]);
+      if (p.success && p.data.moves.length) pieces[k] = p.data;
+    }
+    pieces.K = { ...pieces.K, value: 1000 };
+    const setup = SetupS.safeParse(raw["setup"]);
+    return {
+      rules: {
+        name: String(raw["name"] ?? (data.lang === "ar" ? "نسخة مخصصة" : "Custom Variant")),
+        description: String(raw["description"] ?? data.prompt),
+        pieces,
+        ...(setup.success ? { setup: setup.data } : {}),
+      },
+    };
   });

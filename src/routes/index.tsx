@@ -56,6 +56,7 @@ function Index() {
   const [last, setLast] = useState<Ply | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [errDetail, setErrDetail] = useState(""); // raw provider/parse reason, for troubleshooting
   // Store the moved piece type, not its name, so the log follows the active language.
   const [log, setLog] = useState<{ p: PieceType | null; m: Ply }[]>([]);
   const [mins, setMins] = useState(10);
@@ -135,10 +136,10 @@ function Index() {
 
   const create = async () => {
     if (CLASSIC_TEXTS.includes(prompt)) { reset(DEFAULT_RULES); return; }
-    setLoading(true); setErr("");
+    setLoading(true); setErr(""); setErrDetail("");
     try {
       const res = await gen({ data: { prompt, lang } });
-      if (res.error || !res.rules) setErr(t.err[res.error ?? "unknown"] ?? t.err["unknown"]!);
+      if (res.error || !res.rules) { setErr(t.err[res.error ?? "unknown"] ?? t.err["unknown"]!); setErrDetail(res.detail ?? ""); }
       else {
         reset(res.rules);
         if (user) {
@@ -268,6 +269,7 @@ function Index() {
               </div>
               <Button onClick={create} disabled={loading || prompt.trim().length < 3} className="mt-4 h-11 w-full text-sm font-bold">{loading ? t.generating : <><Sparkles aria-hidden="true" /> {t.create}</>}</Button>
               {err && <p role="alert" className="mt-2 text-sm text-destructive">{err}</p>}
+              {err && errDetail && <p dir="ltr" className="mt-1 break-words text-[11px] leading-4 text-muted-foreground">{errDetail}</p>}
               <Button onClick={invite} disabled={inviting} variant="outline" className="mt-2 h-11 w-full gap-2 bg-card text-sm font-bold"><Users aria-hidden="true" /> {inviting ? t.inviting : t.playFriend}</Button>
               {!user && ready && <p className="mt-2 text-xs text-muted-foreground">{t.signInHint}</p>}
             </section>
