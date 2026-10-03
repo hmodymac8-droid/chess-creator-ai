@@ -8,6 +8,7 @@ import {
   type Board, type Rules, type Ply, type PieceType,
 } from "@/lib/engine";
 import { generateVariant } from "@/lib/variant.functions";
+import { playSound } from "@/lib/sounds";
 import wK from "@/assets/pieces/wK.asset.json";
 import wQ from "@/assets/pieces/wQ.asset.json";
 import wR from "@/assets/pieces/wR.asset.json";
@@ -35,20 +36,34 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const EXAMPLES = [
-  "حصان يتحرك كالفيل، وبيدق يمكنه القفز فوق القطع",
-  "الرخ يقفز فوق القطع، والملك يتحرك خانتين في أي اتجاه",
-  "الفيل يتحرك أيضاً كالحصان، والوزير لا يتحرك إلا ثلاث خانات",
+const CLASSIC = "الشطرنج الكلاسيكي";
+const EXAMPLES: { title: string; text: string }[] = [
+  { title: CLASSIC, text: "الشطرنج الكلاسيكي بقواعده المعروفة" },
+  { title: "الحصان القطري", text: "حصان يتحرك كالفيل، وبيدق يمكنه القفز فوق القطع" },
+  { title: "الرخ القافز", text: "الرخ يقفز فوق القطع، والملك يتحرك خانتين في أي اتجاه" },
+  { title: "الفيل الفارس", text: "الفيل يتحرك أيضاً كالحصان، والوزير لا يتحرك إلا ثلاث خانات" },
+  { title: "الملك الجبار", text: "الملك يتحرك مثل الوزير، والوزير يتحرك مثل الملك فقط" },
+  { title: "البيادق المحاربة", text: "البيدق يتحرك ويأسر في أي اتجاه خانة واحدة" },
+  { title: "الأحصنة الطائرة", text: "الحصان يقفز ثلاث خانات بشكل حرف L كبير (3،1)" },
+  { title: "الوزير المحدود", text: "الوزير يتحرك خانتين فقط في أي اتجاه، والرخ يتحرك كالوزير" },
+  { title: "الأفيال القافزة", text: "الفيل يقفز فوق القطع قطرياً ويأسر للأمام فقط" },
+  { title: "الرخ الملكي", text: "الرخ يتحرك أيضاً خطوة قطرية واحدة مثل الملك" },
+  { title: "البيدق الطويل", text: "البيدق يتحرك حتى ثلاث خانات للأمام دائماً ويأسر قطرياً" },
+  { title: "الحصان الأمير", text: "الحصان يتحرك كالحصان والملك معاً" },
+  { title: "الجمل", text: "الحصان يصبح جملاً يقفز (3،1) والفيل يتحرك كالرخ" },
+  { title: "السلاحف", text: "كل القطع تتحرك خانة واحدة فقط في اتجاهاتها" },
+  { title: "الأمازون", text: "الوزير يتحرك كالوزير والحصان معاً" },
+  { title: "الرخ الأعمى", text: "الرخ لا يأسر إلا قطرياً خانة واحدة، ويتحرك أفقياً وعمودياً بلا أسر" },
+  { title: "البيدق الشبح", text: "البيدق يقفز فوق القطع ويأسر للأمام مباشرة" },
+  { title: "فوضى الرقعة", text: "كل القطع تقفز فوق القطع، والملك يتحرك كالحصان" },
 ];
-const FILES = "abcdefgh";
-const PIECES = {
-  w: { K: wK.url, Q: wQ.url, R: wR.url, B: wB.url, N: wN.url, P: wP.url },
-  b: { K: bK.url, Q: bQ.url, R: bR.url, B: bB.url, N: bN.url, P: bP.url },
-};
+const TIMES = [0, 1, 3, 5, 10, 15, 30];
+const INCS = [0, 1, 2, 3, 5, 10];
+const fmt = (ms: number) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 
 function Index() {
   const gen = useServerFn(generateVariant);
-  const [prompt, setPrompt] = useState(EXAMPLES[0]!);
+  const [prompt, setPrompt] = useState(EXAMPLES[1]!.text);
   const [rules, setRules] = useState<Rules>(DEFAULT_RULES);
   const [board, setBoard] = useState<Board>(initialBoard);
   const [sel, setSel] = useState<[number, number] | null>(null);
@@ -57,8 +72,13 @@ function Index() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [log, setLog] = useState<string[]>([]);
+  const [mins, setMins] = useState(10);
+  const [inc, setInc] = useState(0);
+  const [clock, setClock] = useState({ w: 600000, b: 600000 });
+  const [flag, setFlag] = useState<"w" | "b" | null>(null);
 
-  const winner = !hasKing(board, "b") ? "w" : !hasKing(board, "w") ? "b" : null;
+  const kingWinner = !hasKing(board, "b") ? "w" : !hasKing(board, "w") ? "b" : null;
+  const winner = kingWinner ?? (flag ? (flag === "w" ? "b" : "w") : null);
   const targets = useMemo(() => (sel ? movesFrom(board, rules, sel[0], sel[1]) : []), [sel, board, rules]);
 
   const note = (m: Ply, b: Board) => {
@@ -66,17 +86,42 @@ function Index() {
     return `${piece ? rules.pieces[piece.t].name : "قطعة"} ${FILES[m.fc]}${8 - m.fr}→${FILES[m.tc]}${8 - m.tr}`;
   };
 
-  const reset = (r = rules) => {
+  const reset = (r = rules, m = mins) => {
     setRules(r); setBoard(initialBoard()); setSel(null); setTurn("w"); setLast(null); setLog([]);
+    setClock({ w: m * 60000, b: m * 60000 }); setFlag(null);
   };
+
+  const doMove = (m: Ply, side: "w" | "b") => {
+    const nb = apply(board, m);
+    const captured = !!board[m.tr]?.[m.tc];
+    const ended = !hasKing(nb, side === "w" ? "b" : "w");
+    playSound(ended ? "end" : captured ? "capture" : "move");
+    setLog((l) => [note(m, board), ...l]);
+    setBoard(nb); setLast(m); setSel(null);
+    if (mins > 0) setClock((c) => ({ ...c, [side]: c[side] + inc * 1000 }));
+    setTurn(side === "w" ? "b" : "w");
+  };
+
+  useEffect(() => {
+    if (mins === 0 || winner || log.length === 0) return;
+    let prev = Date.now();
+    const id = setInterval(() => {
+      const now = Date.now(); const dt = now - prev; prev = now;
+      setClock((c) => {
+        const t = c[turn] - dt;
+        if (t <= 0) { setFlag(turn); playSound("end"); return { ...c, [turn]: 0 }; }
+        return { ...c, [turn]: t };
+      });
+    }, 100);
+    return () => clearInterval(id);
+  }, [turn, winner, mins, log.length]);
 
   useEffect(() => {
     if (turn !== "b" || winner) return;
     const id = setTimeout(() => {
       const m = bestMove(board, rules, 3);
       if (!m) { setTurn("w"); return; }
-      setLog((l) => [note(m, board), ...l]);
-      setBoard(apply(board, m)); setLast(m); setTurn("w");
+      doMove(m, "b");
     }, 350);
     return () => clearTimeout(id);
   }, [turn, board, rules, winner]);
@@ -84,15 +129,18 @@ function Index() {
   const click = (r: number, c: number) => {
     if (turn !== "w" || winner) return;
     const t = targets.find((m) => m.tr === r && m.tc === c);
-    if (t) {
-      setLog((l) => [note(t, board), ...l]);
-      setBoard(apply(board, t)); setLast(t); setSel(null); setTurn("b");
-      return;
-    }
+    if (t) { doMove(t, "w"); return; }
     setSel(board[r]![c]?.c === "w" ? [r, c] : null);
   };
 
+  const pickExample = (i: number) => {
+    const ex = EXAMPLES[i]!;
+    setPrompt(ex.text);
+    if (ex.title === CLASSIC) reset(DEFAULT_RULES);
+  };
+
   const create = async () => {
+    if (prompt === EXAMPLES[0]!.text) { reset(DEFAULT_RULES); return; }
     setLoading(true); setErr("");
     try {
       const res = await gen({ data: { prompt } });
@@ -101,6 +149,10 @@ function Index() {
     } catch { setErr("تعذّر الاتصال. حاول مجدداً."); }
     setLoading(false);
   };
+
+  const Clock = ({ side }: { side: "w" | "b" }) => mins === 0 ? null : (
+    <span dir="ltr" className={`rounded-md px-2.5 py-1 font-display text-lg font-semibold tabular-nums ${turn === side && !winner ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"} ${clock[side] < 20000 ? "animate-pulse" : ""}`}>{fmt(clock[side])}</span>
+  );
 
   const noMoves = !winner && turn === "w" && allMoves(board, rules, "w").length === 0;
 
