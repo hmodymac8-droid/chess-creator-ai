@@ -169,7 +169,7 @@ function Index() {
   );
 }
 
-function describe(moves: Rules["pieces"]!["K"]["moves"]) {
+function describe(moves: Rules["pieces"]["K"]["moves"]) {
   return moves.map((m) => {
     const parts = [m.kind === "slide" ? (m.maxRange ? `انزلاق حتى ${m.maxRange}` : "انزلاق") : "قفزة"];
     parts.push(m.vectors.map((v) => `(${v[0]},${v[1]})`).join(" "));
