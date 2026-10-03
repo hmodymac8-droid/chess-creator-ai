@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { DEFAULT_RULES, type Rules, type PieceType } from "./engine";
 
-const SYSTEM = `You convert natural-language chess variant descriptions (often Arabic) into a JSON rule set.
+const SYSTEM = `You convert natural-language chess variant descriptions (in any language, often English or Arabic) into a JSON rule set.
 Return ONLY a JSON object, no prose, matching this shape (this is standard chess):
 ${JSON.stringify(DEFAULT_RULES)}
 Rules:
@@ -12,7 +12,10 @@ Rules:
 - mode: "both" | "move" (non-capturing only) | "capture" (capture only). jump:true lets a slide pass over pieces. firstMoveOnly for initial-move-only patterns.
 - Only change what the description asks; keep the other pieces standard.
 - "value" is the piece's approximate strength for the AI (king stays 1000).
-- name: a short creative Arabic title for the variant. description: 1-2 Arabic sentences summarizing the changed rules. Piece names in Arabic.`;
+- name: a short creative title for the variant. description: 1-2 sentences summarizing the changed rules.
+- Write name, description and all piece names in the OUTPUT LANGUAGE given with the request.`;
+
+const LANG_NAMES = { en: "English", ar: "Arabic" } as const;
 
 const MoveS = z.object({
   kind: z.enum(["leap", "slide"]),
@@ -24,35 +27,29 @@ const MoveS = z.object({
 });
 const PieceS = z.object({ name: z.string(), value: z.number(), moves: z.array(MoveS) });
 
+export type VariantError = "aiNotConfigured" | "rateLimited" | "credits" | "parse";
+
 export const generateVariant = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ prompt: z.string().min(3).max(1000) }).parse(d))
-  .handler(async ({ data }): Promise<{ rules?: Rules; error?: string }> => {
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) return { error: "مفتاح الذكاء الاصطناعي غير مُعدّ." };
+  .inputValidator((d) =>
+    z.object({ prompt: z.string().min(3).max(1000), lang: z.enum(["en", "ar"]).default("en") }).parse(d),
+  )
+  .handler(async ({ data }): Promise<{ rules?: Rules; error?: VariantError }> => {
+    const apiKey = process.env["AI_API_KEY"];
+    if (!apiKey) return { error: "aiNotConfigured" };
     const { createOpenAI } = await import("@ai-sdk/openai");
-    const { streamText } = await import("ai");
-    const provider = createOpenAI({
-      baseURL: "https://ai.gateway.lovable.dev/v1",
-      apiKey,
-      headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-    });
+    const { generateText } = await import("ai");
+    // Any OpenAI-compatible endpoint works (OpenAI, OpenRouter, Anthropic's compat API, local servers…).
+    const baseURL = process.env["AI_BASE_URL"];
+    const provider = createOpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
     try {
-      const result = streamText({
-        model: provider.responses("openai/gpt-6-astra"),
+      const { text } = await generateText({
+        model: provider.chat(process.env["AI_MODEL"] || "gpt-5-mini"),
         system: SYSTEM,
-        prompt: data.prompt,
+        prompt: `OUTPUT LANGUAGE: ${LANG_NAMES[data.lang]}
+
+${data.prompt}`,
         maxRetries: 0,
-        providerOptions: {
-          openai: {
-            forceReasoning: true,
-            reasoningEffort: "low",
-            reasoningSummary: "auto",
-            store: false,
-            include: ["reasoning.encrypted_content"],
-          },
-        },
       });
-      const text = await result.text;
       const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
       const raw = JSON.parse(json);
       const pieces = { ...DEFAULT_RULES.pieces };
@@ -63,16 +60,16 @@ export const generateVariant = createServerFn({ method: "POST" })
       pieces.K = { ...pieces.K, value: 1000 };
       return {
         rules: {
-          name: String(raw.name ?? "نسخة مخصصة"),
+          name: String(raw.name ?? (data.lang === "ar" ? "نسخة مخصصة" : "Custom Variant")),
           description: String(raw.description ?? data.prompt),
           pieces,
         },
       };
     } catch (e: unknown) {
       const status = (e as { statusCode?: number })?.statusCode;
-      if (status === 429) return { error: "طلبات كثيرة، حاول بعد قليل." };
-      if (status === 402) return { error: "نفد رصيد الذكاء الاصطناعي." };
+      if (status === 429) return { error: "rateLimited" };
+      if (status === 402) return { error: "credits" };
       console.error(e);
-      return { error: "تعذّر تحويل الوصف إلى قواعد. جرّب صياغة أخرى." };
+      return { error: "parse" };
     }
   });

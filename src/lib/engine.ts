@@ -23,16 +23,16 @@ const DIAG: [number, number][] = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
 const KNIGHT: [number, number][] = [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]];
 
 export const DEFAULT_RULES: Rules = {
-  name: "الشطرنج الكلاسيكي",
-  description: "القواعد التقليدية. اكتب وصفاً لابتكار نسختك الخاصة.",
+  name: "Classic Chess",
+  description: "The traditional rules. Write a description to invent your own variant.",
   pieces: {
-    K: { name: "الملك", value: 1000, moves: [{ kind: "leap", vectors: [...ORTH, ...DIAG] }] },
-    Q: { name: "الوزير", value: 9, moves: [{ kind: "slide", vectors: [...ORTH, ...DIAG] }] },
-    R: { name: "الرخ", value: 5, moves: [{ kind: "slide", vectors: ORTH }] },
-    B: { name: "الفيل", value: 3, moves: [{ kind: "slide", vectors: DIAG }] },
-    N: { name: "الحصان", value: 3, moves: [{ kind: "leap", vectors: KNIGHT }] },
+    K: { name: "King", value: 1000, moves: [{ kind: "leap", vectors: [...ORTH, ...DIAG] }] },
+    Q: { name: "Queen", value: 9, moves: [{ kind: "slide", vectors: [...ORTH, ...DIAG] }] },
+    R: { name: "Rook", value: 5, moves: [{ kind: "slide", vectors: ORTH }] },
+    B: { name: "Bishop", value: 3, moves: [{ kind: "slide", vectors: DIAG }] },
+    N: { name: "Knight", value: 3, moves: [{ kind: "leap", vectors: KNIGHT }] },
     P: {
-      name: "البيدق",
+      name: "Pawn",
       value: 1,
       moves: [
         { kind: "leap", vectors: [[0, 1]], mode: "move" },

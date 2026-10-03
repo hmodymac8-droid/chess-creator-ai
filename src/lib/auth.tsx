@@ -18,18 +18,19 @@ export function useAuth() {
   return { user, username, ready };
 }
 
+/** Resolves to null on success, or an error code (see `authErr` in i18n). */
 export async function signInOrUp(mode: "in" | "up", name: string, password: string): Promise<string | null> {
   const n = name.trim();
-  if (n.length < 2 || n.length > 24) return "الاسم يجب أن يكون بين 2 و 24 حرفاً";
-  if (password.length < 6) return "كلمة المرور 6 أحرف على الأقل";
+  if (n.length < 2 || n.length > 24) return "nameLength";
+  if (password.length < 6) return "pwLength";
   const email = nameToEmail(n);
   if (mode === "up") {
     const { data: taken } = await supabase.from("profiles").select("id").eq("username", n).maybeSingle();
-    if (taken) return "هذا الاسم مستخدم";
+    if (taken) return "nameTaken";
     const { error } = await supabase.auth.signUp({ email, password, options: { data: { username: n } } });
-    if (error) return error.message.includes("registered") ? "هذا الاسم مستخدم" : error.message.includes("weak") || error.message.includes("pwned") ? "كلمة المرور ضعيفة أو مسرّبة، اختر غيرها" : "تعذّر إنشاء الحساب";
+    if (error) return error.message.includes("registered") ? "nameTaken" : error.message.includes("weak") || error.message.includes("pwned") ? "weakPw" : "signUpFailed";
     return null;
   }
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  return error ? "الاسم أو كلمة المرور غير صحيحة" : null;
+  return error ? "badCredentials" : null;
 }
