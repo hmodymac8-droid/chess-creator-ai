@@ -53,6 +53,8 @@ const en = {
   signInHint: "Sign in to save your variants and invite friends.",
   currentVariant: "Current variant",
   backToClassic: "Back to classic rules",
+  goalKing: "Goal: capture the enemy king",
+  goalAll: "Goal: capture every enemy piece",
   // Move descriptions
   mv: {
     all: "in all directions",
@@ -77,6 +79,7 @@ const en = {
     rateLimited: "Too many requests, try again shortly.",
     credits: "AI credits have run out.",
     parse: "Couldn't turn the description into rules. Try rephrasing it.",
+    unavailable: "The AI service is busy right now. Try again in a moment.",
   } as Record<string, string>,
   // Auth
   auth: {
@@ -204,6 +207,8 @@ const ar: Dict = {
   signInHint: "سجّل الدخول لحفظ أمثلتك ودعوة أصدقائك.",
   currentVariant: "النسخة الحالية",
   backToClassic: "العودة للقواعد الكلاسيكية",
+  goalKing: "الهدف: أسر ملك الخصم",
+  goalAll: "الهدف: أسر كل قطع الخصم",
   mv: {
     all: "في جميع الاتجاهات",
     diagonal: "قطرياً",
@@ -226,6 +231,7 @@ const ar: Dict = {
     rateLimited: "طلبات كثيرة، حاول بعد قليل.",
     credits: "نفد رصيد الذكاء الاصطناعي.",
     parse: "تعذّر تحويل الوصف إلى قواعد. جرّب صياغة أخرى.",
+    unavailable: "خدمة الذكاء الاصطناعي مشغولة الآن. حاول بعد قليل.",
   },
   auth: {
     signInTab: "تسجيل الدخول",

@@ -9,10 +9,13 @@ export type Move = {
   firstMoveOnly?: boolean | undefined;
 };
 export type PieceRule = { name: string; value: number; moves: Move[] };
+/** Starting rows (files a→h) from each player's own side; null = empty square. Mirrored for both colors. */
+export type Setup = { back: (PieceType | null)[]; pawns: (PieceType | null)[] };
 export type Rules = {
   name: string;
   description: string;
   pieces: Record<PieceType, PieceRule>;
+  setup?: Setup | undefined; // omitted = standard position
 };
 export type Cell = { t: PieceType; c: Color; moved?: boolean } | null;
 export type Board = Cell[][];
@@ -45,16 +48,42 @@ export const DEFAULT_RULES: Rules = {
 
 export const GLYPH: Record<PieceType, string> = { K: "♚", Q: "♛", R: "♜", B: "♝", N: "♞", P: "♟" };
 
-export function initialBoard(): Board {
-  const back: PieceType[] = ["R", "N", "B", "Q", "K", "B", "N", "R"];
+export const STANDARD_SETUP: Setup = {
+  back: ["R", "N", "B", "Q", "K", "B", "N", "R"],
+  pawns: ["P", "P", "P", "P", "P", "P", "P", "P"],
+};
+
+export function initialBoard(rules?: Rules): Board {
+  const { back, pawns } = rules?.setup ?? STANDARD_SETUP;
   const b: Board = Array.from({ length: 8 }, () => Array(8).fill(null));
   for (let c = 0; c < 8; c++) {
-    b[0]![c] = { t: back[c]!, c: "b" };
-    b[1]![c] = { t: "P", c: "b" };
-    b[6]![c] = { t: "P", c: "w" };
-    b[7]![c] = { t: back[c]!, c: "w" };
+    const bt = back[c], pt = pawns[c];
+    if (bt) { b[0]![c] = { t: bt, c: "b" }; b[7]![c] = { t: bt, c: "w" }; }
+    if (pt) { b[1]![c] = { t: pt, c: "b" }; b[6]![c] = { t: pt, c: "w" }; }
   }
   return b;
+}
+
+/** Piece types that appear in the starting position. */
+export function piecesInPlay(rules: Rules): PieceType[] {
+  const { back, pawns } = rules.setup ?? STANDARD_SETUP;
+  return (["K", "Q", "R", "B", "N", "P"] as PieceType[]).filter((t) => back.includes(t) || pawns.includes(t));
+}
+
+/** With a king in the setup you win by capturing it; without one, by capturing every enemy piece. */
+export const hasRoyal = (rules: Rules) => piecesInPlay(rules).includes("K");
+
+export function lost(board: Board, rules: Rules, color: Color): boolean {
+  if (hasRoyal(rules)) return !hasKing(board, color);
+  return !board.some((row) => row.some((x) => x?.c === color));
+}
+
+/** Pawns promote to the strongest non-king piece of the variant (none → stay a pawn). */
+function promotion(rules?: Rules): PieceType | null {
+  if (!rules) return "Q";
+  const opts = piecesInPlay(rules).filter((t) => t !== "K" && t !== "P");
+  if (!opts.length) return null;
+  return opts.reduce((a, t) => (rules.pieces[t].value > rules.pieces[a].value ? t : a));
 }
 
 const inB = (r: number, c: number) => r >= 0 && r < 8 && c >= 0 && c < 8;
@@ -96,11 +125,12 @@ export function allMoves(board: Board, rules: Rules, color: Color): Ply[] {
   return out;
 }
 
-export function apply(board: Board, m: Ply): Board {
+export function apply(board: Board, m: Ply, rules?: Rules): Board {
   const b = board.map((row) => row.slice());
   const p = b[m.fr]![m.fc]!;
   let np = { ...p, moved: true };
-  if (p.t === "P" && (m.tr === 0 || m.tr === 7)) np = { ...np, t: "Q" };
+  const promo = p.t === "P" && (m.tr === 0 || m.tr === 7) ? promotion(rules) : null;
+  if (promo) np = { ...np, t: promo };
   b[m.tr]![m.tc] = np;
   b[m.fr]![m.fc] = null;
   return b;
@@ -123,15 +153,15 @@ function evaluate(board: Board, rules: Rules): number {
 }
 
 function search(board: Board, rules: Rules, depth: number, a: number, b: number, color: Color): number {
-  if (!hasKing(board, "w")) return 1e5 + depth;
-  if (!hasKing(board, "b")) return -1e5 - depth;
+  if (lost(board, rules, "w")) return 1e5 + depth;
+  if (lost(board, rules, "b")) return -1e5 - depth;
   if (depth === 0) return evaluate(board, rules);
   const moves = order(board, allMoves(board, rules, color));
   if (!moves.length) return evaluate(board, rules);
   if (color === "b") {
     let best = -Infinity;
     for (const m of moves) {
-      best = Math.max(best, search(apply(board, m), rules, depth - 1, a, b, "w"));
+      best = Math.max(best, search(apply(board, m, rules), rules, depth - 1, a, b, "w"));
       a = Math.max(a, best);
       if (a >= b) break;
     }
@@ -139,7 +169,7 @@ function search(board: Board, rules: Rules, depth: number, a: number, b: number,
   }
   let best = Infinity;
   for (const m of moves) {
-    best = Math.min(best, search(apply(board, m), rules, depth - 1, a, b, "b"));
+    best = Math.min(best, search(apply(board, m, rules), rules, depth - 1, a, b, "b"));
     b = Math.min(b, best);
     if (a >= b) break;
   }
@@ -153,7 +183,7 @@ export function bestMove(board: Board, rules: Rules, depth = 3): Ply | null {
   const moves = order(board, allMoves(board, rules, "b"));
   let best: Ply | null = null, bestS = -Infinity;
   for (const m of moves) {
-    const s = search(apply(board, m), rules, depth - 1, -Infinity, Infinity, "w") + Math.random() * 0.01;
+    const s = search(apply(board, m, rules), rules, depth - 1, -Infinity, Infinity, "w") + Math.random() * 0.01;
     if (s > bestS) { bestS = s; best = m; }
   }
   return best;

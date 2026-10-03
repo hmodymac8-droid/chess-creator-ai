@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { RotateCcw, Sparkles, CircleHelp, Users, LogIn, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  DEFAULT_RULES, initialBoard, movesFrom, apply, hasKing, bestMove, allMoves,
+  DEFAULT_RULES, initialBoard, movesFrom, apply, lost, bestMove, allMoves, piecesInPlay, hasRoyal,
   type Board, type Rules, type Ply, type PieceType,
 } from "@/lib/engine";
 import { generateVariant } from "@/lib/variant.functions";
@@ -73,7 +73,7 @@ function Index() {
       .then(({ data }) => setMine((data ?? []) as unknown as Saved[]));
   }, [user?.id]);
 
-  const kingWinner = !hasKing(board, "b") ? "w" : !hasKing(board, "w") ? "b" : null;
+  const kingWinner = lost(board, rules, "b") ? "w" : lost(board, rules, "w") ? "b" : null;
   const winner = kingWinner ?? (flag ? (flag === "w" ? "b" : "w") : null);
   const targets = useMemo(() => (sel ? movesFrom(board, rules, sel[0], sel[1]) : []), [sel, board, rules]);
 
@@ -81,14 +81,14 @@ function Index() {
     `${p ? pieceName(rules, p, t) : t.piece} ${FILES[m.fc]}${8 - m.fr}→${FILES[m.tc]}${8 - m.tr}`;
 
   const reset = (r = rules, m = mins) => {
-    setRules(r); setBoard(initialBoard()); setSel(null); setTurn("w"); setLast(null); setLog([]);
+    setRules(r); setBoard(initialBoard(r)); setSel(null); setTurn("w"); setLast(null); setLog([]);
     setClock({ w: m * 60000, b: m * 60000 }); setFlag(null);
   };
 
   const doMove = (m: Ply, side: "w" | "b") => {
-    const nb = apply(board, m);
+    const nb = apply(board, m, rules);
     const captured = !!board[m.tr]?.[m.tc];
-    const ended = !hasKing(nb, side === "w" ? "b" : "w");
+    const ended = lost(nb, rules, side === "w" ? "b" : "w");
     playSound(ended ? "end" : captured ? "capture" : "move");
     setLog((l) => [{ p: board[m.fr]?.[m.fc]?.t ?? null, m }, ...l]);
     setBoard(nb); setLast(m); setSel(null);
@@ -154,7 +154,7 @@ function Index() {
     if (!user) { setShowAuth(true); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     setInviting(true); setErr("");
     const { data, error } = await supabase.from("games").insert({
-      host_name: username, rules: rules as never, board: initialBoard() as never,
+      host_name: username, rules: rules as never, board: initialBoard(rules) as never,
       minutes: mins, inc, clock_w: mins * 60000, clock_b: mins * 60000,
     }).select("id").single();
     setInviting(false);
@@ -278,8 +278,9 @@ function Index() {
                 <CircleHelp className="mt-1 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
               </div>
               <p className="text-sm leading-6 text-muted-foreground">{variantDesc(rules, t)}</p>
+              <p className="mt-2 text-xs font-semibold text-primary">{hasRoyal(rules) ? t.goalKing : t.goalAll}</p>
               <ul className="mt-4 divide-y divide-border/60 border-y border-border/60">
-                {(Object.keys(rules.pieces) as PieceType[]).map((k) => (
+                {piecesInPlay(rules).map((k) => (
                   <li key={k} className="flex items-start gap-3 py-2.5">
                     <img src={PIECES.w[k]} alt="" className="size-9 shrink-0 rounded-sm bg-secondary/50 p-0.5" />
                     <div className="min-w-0 flex-1">

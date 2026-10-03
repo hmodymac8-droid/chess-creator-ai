@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { AuthForm } from "@/components/AuthForm";
-import { apply, hasKing, movesFrom, type Board, type Ply, type Rules } from "@/lib/engine";
+import { apply, lost, movesFrom, type Board, type Ply, type Rules } from "@/lib/engine";
 import { PIECE_IMG } from "@/lib/pieces";
 import { playSound } from "@/lib/sounds";
 import { pieceName, useI18n, variantDesc, variantName } from "@/lib/i18n";
@@ -100,10 +100,10 @@ function Play() {
     if (g.status !== "playing" || g.turn !== me) return;
     const t = targets.find((m) => m.tr === r && m.tc === c);
     if (t) {
-      const nb = apply(g.board, t);
+      const nb = apply(g.board, t, g.rules);
       const cap = !!g.board[t.tr]?.[t.tc];
       const other = me === "w" ? "b" : "w";
-      const won = !hasKing(nb, other);
+      const won = lost(nb, g.rules, other);
       playSound(won ? "end" : cap ? "capture" : "move");
       const left = live(me) + g.inc * 1000;
       const patch = {
