@@ -14,13 +14,117 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      games: {
+        Row: {
+          board: Json
+          clock_b: number
+          clock_w: number
+          created_at: string
+          guest_id: string | null
+          guest_name: string | null
+          host_id: string
+          host_name: string
+          id: string
+          inc: number
+          last: Json | null
+          minutes: number
+          moved_at: string | null
+          rules: Json
+          status: string
+          turn: string
+          winner: string | null
+        }
+        Insert: {
+          board: Json
+          clock_b?: number
+          clock_w?: number
+          created_at?: string
+          guest_id?: string | null
+          guest_name?: string | null
+          host_id?: string
+          host_name: string
+          id?: string
+          inc?: number
+          last?: Json | null
+          minutes?: number
+          moved_at?: string | null
+          rules: Json
+          status?: string
+          turn?: string
+          winner?: string | null
+        }
+        Update: {
+          board?: Json
+          clock_b?: number
+          clock_w?: number
+          created_at?: string
+          guest_id?: string | null
+          guest_name?: string | null
+          host_id?: string
+          host_name?: string
+          id?: string
+          inc?: number
+          last?: Json | null
+          minutes?: number
+          moved_at?: string | null
+          rules?: Json
+          status?: string
+          turn?: string
+          winner?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      variants: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          prompt: string
+          rules: Json
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          prompt: string
+          rules: Json
+          title: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          prompt?: string
+          rules?: Json
+          title?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      join_game: { Args: { _id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
