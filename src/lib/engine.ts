@@ -49,10 +49,10 @@ export function initialBoard(): Board {
   const back: PieceType[] = ["R", "N", "B", "Q", "K", "B", "N", "R"];
   const b: Board = Array.from({ length: 8 }, () => Array(8).fill(null));
   for (let c = 0; c < 8; c++) {
-    b[0]![c] = { t: back[c], c: "b" };
+    b[0]![c] = { t: back[c]!, c: "b" };
     b[1]![c] = { t: "P", c: "b" };
     b[6]![c] = { t: "P", c: "w" };
-    b[7]![c] = { t: back[c], c: "w" };
+    b[7]![c] = { t: back[c]!, c: "w" };
   }
   return b;
 }
