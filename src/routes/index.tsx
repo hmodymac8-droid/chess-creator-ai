@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { RotateCcw, Sparkles, ArrowLeft, CircleHelp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  DEFAULT_RULES, GLYPH, initialBoard, movesFrom, apply, hasKing, bestMove, allMoves,
+  DEFAULT_RULES, initialBoard, movesFrom, apply, hasKing, bestMove, allMoves,
   type Board, type Rules, type Ply, type PieceType,
 } from "@/lib/engine";
 import { generateVariant } from "@/lib/variant.functions";
@@ -61,7 +61,7 @@ function Index() {
   const winner = !hasKing(board, "b") ? "w" : !hasKing(board, "w") ? "b" : null;
   const targets = useMemo(() => (sel ? movesFrom(board, rules, sel[0], sel[1]) : []), [sel, board, rules]);
 
-  const note = (m: Ply, b: Board) => `${GLYPH[b[m.fr]![m.fc]!.t]} ${FILES[m.fc]}${8 - m.fr}→${FILES[m.tc]}${8 - m.tr}`;
+  const note = (m: Ply, b: Board) => `${b[m.fr]?.[m.fc] ? rules.pieces[b[m.fr]![m.fc]!.t].name : "قطعة"} ${FILES[m.fc]}${8 - m.fr}→${FILES[m.tc]}${8 - m.tr}`;
 
   const reset = (r = rules) => {
     setRules(r); setBoard(initialBoard()); setSel(null); setTurn("w"); setLast(null); setLog([]);
@@ -106,7 +106,7 @@ function Index() {
       <div className="mx-auto max-w-[1320px] px-4 pb-12 pt-5 sm:px-7 lg:px-10">
         <header className="mb-7 flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-5">
           <div className="flex items-center gap-3">
-            <span className="flex size-11 items-center justify-center rounded-md bg-primary text-2xl font-bold text-primary-foreground">♞</span>
+            <span className="flex size-11 items-center justify-center rounded-md bg-primary"><img src={bN.url} alt="" className="size-10" /></span>
             <div>
               <p className="text-[11px] font-bold text-primary">مختبر القواعد</p>
               <h1 className="font-display text-xl font-semibold sm:text-2xl">مُصمم الشطرنج</h1>
@@ -201,8 +201,15 @@ function Index() {
 
 function describe(moves: Rules["pieces"]["K"]["moves"]) {
   return moves.map((m) => {
-    const parts = [m.kind === "slide" ? (m.maxRange ? `انزلاق حتى ${m.maxRange}` : "انزلاق") : "قفزة"];
-    parts.push(m.vectors.map((v) => `(${v[0]},${v[1]})`).join(" "));
+    const dirs = m.vectors.map(([x, y]) => `${Math.abs(x)},${Math.abs(y)}`);
+    const unique = [...new Set(dirs)];
+    const diagonal = unique.length === 1 && unique[0] === "1,1";
+    const straight = unique.every((v) => v === "1,0" || v === "0,1");
+    const knight = unique.every((v) => v === "1,2" || v === "2,1");
+    const forward = unique.length === 1 && unique[0] === "0,1";
+    const parts = [diagonal ? "قطرياً" : straight ? (forward ? "للأمام" : "أفقياً وعمودياً") : knight ? "على شكل حرف L" : `باتجاهات ${m.vectors.map(([x, y]) => `(${x}،${y})`).join(" ")}`];
+    if (m.kind === "slide" && m.maxRange) parts.push(`حتى ${m.maxRange} خانات`);
+    else if (m.kind === "leap" && !knight) parts.push("خانة واحدة");
     if (m.mode === "move") parts.push("بلا أسر");
     if (m.mode === "capture") parts.push("للأسر فقط");
     if (m.jump) parts.push("يتخطى القطع");
