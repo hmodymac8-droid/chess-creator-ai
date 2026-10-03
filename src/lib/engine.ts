@@ -3,10 +3,10 @@ export type Color = "w" | "b";
 export type Move = {
   kind: "leap" | "slide";
   vectors: [number, number][]; // [dx, dy], dy positive = forward for the owner
-  mode?: "both" | "move" | "capture";
-  jump?: boolean; // slides pass over pieces
-  maxRange?: number;
-  firstMoveOnly?: boolean;
+  mode?: "both" | "move" | "capture" | undefined;
+  jump?: boolean | undefined; // slides pass over pieces
+  maxRange?: number | undefined;
+  firstMoveOnly?: boolean | undefined;
 };
 export type PieceRule = { name: string; value: number; moves: Move[] };
 export type Rules = {
@@ -49,10 +49,10 @@ export function initialBoard(): Board {
   const back: PieceType[] = ["R", "N", "B", "Q", "K", "B", "N", "R"];
   const b: Board = Array.from({ length: 8 }, () => Array(8).fill(null));
   for (let c = 0; c < 8; c++) {
-    b[0][c] = { t: back[c], c: "b" };
-    b[1][c] = { t: "P", c: "b" };
-    b[6][c] = { t: "P", c: "w" };
-    b[7][c] = { t: back[c], c: "w" };
+    b[0]![c] = { t: back[c], c: "b" };
+    b[1]![c] = { t: "P", c: "b" };
+    b[6]![c] = { t: "P", c: "w" };
+    b[7]![c] = { t: back[c], c: "w" };
   }
   return b;
 }
@@ -60,7 +60,7 @@ export function initialBoard(): Board {
 const inB = (r: number, c: number) => r >= 0 && r < 8 && c >= 0 && c < 8;
 
 export function movesFrom(board: Board, rules: Rules, r: number, c: number): Ply[] {
-  const p = board[r][c];
+  const p = board[r]![c];
   if (!p) return [];
   const fwd = p.c === "w" ? -1 : 1;
   const out: Ply[] = [];
@@ -77,7 +77,7 @@ export function movesFrom(board: Board, rules: Rules, r: number, c: number): Ply
       for (let i = 1; i <= range; i++) {
         const tr = r + dy * fwd * i, tc = c + dx * i;
         if (!inB(tr, tc)) break;
-        const t = board[tr][tc];
+        const t = board[tr]![tc];
         if (!t) { if (mode !== "capture") add(tr, tc); }
         else {
           if (t.c !== p.c && mode !== "move") add(tr, tc);
@@ -92,17 +92,17 @@ export function movesFrom(board: Board, rules: Rules, r: number, c: number): Ply
 export function allMoves(board: Board, rules: Rules, color: Color): Ply[] {
   const out: Ply[] = [];
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++)
-    if (board[r][c]?.c === color) out.push(...movesFrom(board, rules, r, c));
+    if (board[r]![c]?.c === color) out.push(...movesFrom(board, rules, r, c));
   return out;
 }
 
 export function apply(board: Board, m: Ply): Board {
   const b = board.map((row) => row.slice());
-  const p = b[m.fr][m.fc]!;
+  const p = b[m.fr]![m.fc]!;
   let np = { ...p, moved: true };
   if (p.t === "P" && (m.tr === 0 || m.tr === 7)) np = { ...np, t: "Q" };
-  b[m.tr][m.tc] = np;
-  b[m.fr][m.fc] = null;
+  b[m.tr]![m.tc] = np;
+  b[m.fr]![m.fc] = null;
   return b;
 }
 
@@ -113,7 +113,7 @@ export function hasKing(board: Board, color: Color) {
 function evaluate(board: Board, rules: Rules): number {
   let s = 0;
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
-    const p = board[r][c];
+    const p = board[r]![c];
     if (!p) continue;
     const v = rules.pieces[p.t]?.value ?? 1;
     const center = 0.05 * (3.5 - Math.abs(3.5 - c)) + 0.05 * (3.5 - Math.abs(3.5 - r));
@@ -147,7 +147,7 @@ function search(board: Board, rules: Rules, depth: number, a: number, b: number,
 }
 
 const order = (board: Board, ms: Ply[]) =>
-  ms.sort((x, y) => (board[y.tr][y.tc] ? 1 : 0) - (board[x.tr][x.tc] ? 1 : 0));
+  ms.sort((x, y) => (board[y.tr]![y.tc] ? 1 : 0) - (board[x.tr]![x.tc] ? 1 : 0));
 
 export function bestMove(board: Board, rules: Rules, depth = 3): Ply | null {
   const moves = order(board, allMoves(board, rules, "b"));

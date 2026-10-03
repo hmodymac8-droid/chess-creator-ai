@@ -30,7 +30,7 @@ const FILES = "abcdefgh";
 
 function Index() {
   const gen = useServerFn(generateVariant);
-  const [prompt, setPrompt] = useState(EXAMPLES[0]);
+  const [prompt, setPrompt] = useState(EXAMPLES[0]!);
   const [rules, setRules] = useState<Rules>(DEFAULT_RULES);
   const [board, setBoard] = useState<Board>(initialBoard);
   const [sel, setSel] = useState<[number, number] | null>(null);
@@ -43,7 +43,7 @@ function Index() {
   const winner = !hasKing(board, "b") ? "w" : !hasKing(board, "w") ? "b" : null;
   const targets = useMemo(() => (sel ? movesFrom(board, rules, sel[0], sel[1]) : []), [sel, board, rules]);
 
-  const note = (m: Ply, b: Board) => `${GLYPH[b[m.fr][m.fc]!.t]} ${FILES[m.fc]}${8 - m.fr}→${FILES[m.tc]}${8 - m.tr}`;
+  const note = (m: Ply, b: Board) => `${GLYPH[b[m.fr]![m.fc]!.t]} ${FILES[m.fc]}${8 - m.fr}→${FILES[m.tc]}${8 - m.tr}`;
 
   const reset = (r = rules) => {
     setRules(r); setBoard(initialBoard()); setSel(null); setTurn("w"); setLast(null); setLog([]);
@@ -68,7 +68,7 @@ function Index() {
       setBoard(apply(board, t)); setLast(t); setSel(null); setTurn("b");
       return;
     }
-    setSel(board[r][c]?.c === "w" ? [r, c] : null);
+    setSel(board[r]![c]?.c === "w" ? [r, c] : null);
   };
 
   const create = async () => {
@@ -169,7 +169,7 @@ function Index() {
   );
 }
 
-function describe(moves: Rules["pieces"]["K"]["moves"]) {
+function describe(moves: Rules["pieces"]!["K"]["moves"]) {
   return moves.map((m) => {
     const parts = [m.kind === "slide" ? (m.maxRange ? `انزلاق حتى ${m.maxRange}` : "انزلاق") : "قفزة"];
     parts.push(m.vectors.map((v) => `(${v[0]},${v[1]})`).join(" "));
