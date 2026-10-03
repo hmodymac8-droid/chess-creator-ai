@@ -182,7 +182,7 @@ function Index() {
             <div className="mx-auto w-full max-w-[650px]">
               <div className="mb-2 flex items-center justify-between rounded-md border border-border/60 bg-card px-3 py-2.5 sm:px-4">
                 <div className="flex items-center gap-2.5"><img src={bN.url} alt="" className="size-8" /><span className="text-sm font-semibold">المنافس الذكي</span></div>
-                <span className="text-xs text-muted-foreground">القطع الداكنة</span>
+                <div className="flex items-center gap-3"><span className="text-xs text-muted-foreground">القطع الداكنة</span><Clock side="b" /></div>
               </div>
               <div dir="ltr" className="board" role="grid" aria-label="رقعة الشطرنج">
               {board.map((row, r) => row.map((p, c) => {
@@ -207,7 +207,7 @@ function Index() {
               </div>
               <div className="mt-2 flex items-center justify-between rounded-md border border-border/60 bg-card px-3 py-2.5 sm:px-4">
                 <div className="flex items-center gap-2.5"><img src={wN.url} alt="" className="size-8" /><span className="text-sm font-semibold">أنت <span className="font-normal text-muted-foreground">· الأبيض</span></span></div>
-                <span className="flex items-center gap-2 text-xs font-semibold text-primary"><span className="size-2 rounded-full bg-primary" />{winner ? (winner === "w" ? "انتصرت!" : "انتهت اللعبة") : noMoves ? "لا توجد حركات" : turn === "w" ? "دورك الآن" : "المحرك يفكر…"}</span>
+                <div className="flex items-center gap-3"><span className="flex items-center gap-2 text-xs font-semibold text-primary"><span className="size-2 rounded-full bg-primary" />{winner ? (winner === "w" ? (flag ? "انتصرت بالوقت!" : "انتصرت!") : (flag ? "انتهى وقتك" : "انتهت اللعبة")) : noMoves ? "لا توجد حركات" : turn === "w" ? "دورك الآن" : "المحرك يفكر…"}</span><Clock side="w" /></div>
               </div>
               {log.length > 0 && <div className="mt-4 border-t border-border/60 pt-3 text-xs text-muted-foreground"><span className="mb-1 block font-semibold text-foreground">آخر الحركات</span><div className="max-h-20 overflow-auto" dir="ltr">{log.slice(0, 12).join("  ·  ")}</div></div>}
             </div>
@@ -221,8 +221,24 @@ function Index() {
               </div>
               <label htmlFor="rule-prompt" className="mb-2 block text-sm font-semibold">قواعد اللعبة</label>
               <textarea id="rule-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={4} className="w-full resize-none rounded-md border border-input bg-card p-3.5 text-sm leading-7 outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20" />
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {EXAMPLES.map((e, i) => <Button key={e} variant="outline" size="sm" onClick={() => setPrompt(e)} className="h-auto max-w-full whitespace-normal border-border/70 bg-card px-2.5 py-1.5 text-right text-xs leading-5 text-muted-foreground hover:text-foreground">مثال {i + 1} <ArrowLeft className="size-3" aria-hidden="true" /></Button>)}
+              <label htmlFor="examples" className="mb-1.5 mt-3 block text-sm font-semibold">قائمة الأمثلة ({EXAMPLES.length})</label>
+              <select id="examples" defaultValue="" onChange={(e) => e.target.value !== "" && pickExample(Number(e.target.value))} className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus:border-primary">
+                <option value="" disabled>اختر مثالاً…</option>
+                {EXAMPLES.map((e, i) => <option key={e.title} value={i}>{i + 1}. {e.title}</option>)}
+              </select>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div>
+                  <label htmlFor="tc-min" className="mb-1.5 block text-sm font-semibold">المؤقت</label>
+                  <select id="tc-min" value={mins} onChange={(e) => { const m = Number(e.target.value); setMins(m); reset(rules, m); }} className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus:border-primary">
+                    {TIMES.map((t) => <option key={t} value={t}>{t === 0 ? "بدون مؤقت" : `${t} دقيقة`}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="tc-inc" className="mb-1.5 block text-sm font-semibold">زيادة لكل حركة</label>
+                  <select id="tc-inc" value={inc} disabled={mins === 0} onChange={(e) => setInc(Number(e.target.value))} className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus:border-primary disabled:opacity-50">
+                    {INCS.map((t) => <option key={t} value={t}>{t} ثانية</option>)}
+                  </select>
+                </div>
               </div>
               <Button onClick={create} disabled={loading || prompt.trim().length < 3} className="mt-4 h-11 w-full text-sm font-bold">{loading ? "جارٍ صياغة القواعد…" : <><Sparkles aria-hidden="true" /> ابتكر اللعبة</>}</Button>
               {err && <p role="alert" className="mt-2 text-sm text-destructive">{err}</p>}
