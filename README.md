@@ -44,6 +44,7 @@ bun run dev            # http://localhost:3000
 | `AI_API_KEY` | for variant generation | API key for the AI provider |
 | `AI_BASE_URL` | no | OpenAI-compatible base URL (defaults to OpenAI). Works with OpenRouter, Anthropic's OpenAI-compatible API, local servers, and so on |
 | `AI_MODEL` | no | Model name (default `gpt-5-mini`) |
+| `AI_FALLBACK_MODELS` | no | Comma-separated backup models tried when the main one is busy (503), rate-limited or missing. Defaults to `gemini-flash-lite-latest,gemini-2.5-flash` for Gemini |
 | `DATABASE_URL` | for migrations | Postgres connection string used by `drizzle-kit` |
 
 **Free AI option:** create a key at [Google AI Studio](https://aistudio.google.com/apikey) (no card required) and set `AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/` and `AI_MODEL=gemini-flash-latest`.

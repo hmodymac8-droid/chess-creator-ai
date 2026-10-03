@@ -71,7 +71,14 @@ export const generateVariant = createServerFn({ method: "POST" })
     // Any OpenAI-compatible endpoint works (OpenAI, Gemini, OpenRouter, Anthropic's compat API, local servers…).
     const baseURL = process.env["AI_BASE_URL"];
     const provider = createOpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
-    const model = provider.chat(process.env["AI_MODEL"] || "gpt-5-mini");
+    // Free tiers are often overloaded (503) or a model may be retired (404), so try backup models in
+    // order. AI_FALLBACK_MODELS is a comma list; Gemini gets a sensible default.
+    const primary = process.env["AI_MODEL"] || "gpt-5-mini";
+    const fallbacks = (process.env["AI_FALLBACK_MODELS"]
+      ?? (baseURL?.includes("generativelanguage.googleapis.com") ? "gemini-flash-lite-latest,gemini-2.5-flash" : ""))
+      .split(",").map((m) => m.trim()).filter((m) => m && m !== primary);
+    const models = [primary, ...fallbacks];
+    let model = provider.chat(primary);
     const prompt = `OUTPUT LANGUAGE: ${LANG_NAMES[data.lang]}\n\n${data.prompt}`;
 
     // Thinking models (e.g. Gemini 2.5) can spend the whole token budget reasoning and return
@@ -104,22 +111,38 @@ export const generateVariant = createServerFn({ method: "POST" })
       }
     };
 
-    let reply: { text: string; truncated: boolean };
-    try {
+    // One model: JSON mode first; endpoints that reject JSON mode or reasoning options answer 400 or
+    // 404 (Gemini), so retry plain.
+    const askModel = async () => {
       try {
-        reply = await askSafe(SYSTEM, prompt, true);
+        return await askSafe(SYSTEM, prompt, true);
       } catch (e) {
-        // Endpoints that reject JSON mode or reasoning options answer 400 or 404 (Gemini); retry plain.
         const s = statusOf(e);
         if (s == null || s < 400 || s >= 500 || s === 401 || s === 402 || s === 429) throw e;
-        reply = await askSafe(SYSTEM, prompt, false);
+        return await askSafe(SYSTEM, prompt, false);
       }
-    } catch (e: unknown) {
-      console.error(e);
-      const status = statusOf(e);
-      if (status === 429) return { error: "rateLimited" };
+    };
+
+    let reply: { text: string; truncated: boolean } | undefined;
+    let lastErr: unknown;
+    for (const id of models) {
+      model = provider.chat(id);
+      try {
+        reply = await askModel();
+        break;
+      } catch (e: unknown) {
+        console.error(`model ${id} failed`, e);
+        lastErr = e;
+        const s = statusOf(e);
+        // Busy, rate-limited or missing model → try the next one; auth/billing errors won't improve.
+        if (!(s == null || s === 404 || s === 429 || s >= 500)) break;
+      }
+    }
+    if (!reply) {
+      const status = statusOf(lastErr);
+      if (status === 429) return { error: "rateLimited", detail: messageOf(lastErr) };
       if (status === 402) return { error: "credits" };
-      return { error: "unavailable", detail: messageOf(e) };
+      return { error: "unavailable", detail: messageOf(lastErr) };
     }
 
     let raw: Record<string, unknown>;

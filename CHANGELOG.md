@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.1.2
+
+### Fixed
+- When the AI model is busy (503), rate-limited (429) or missing (404), generation automatically tries backup models (`AI_FALLBACK_MODELS`; Gemini defaults to `gemini-flash-lite-latest`, then `gemini-2.5-flash`).
+- Error messages now follow the current language when you switch languages after an error.
+
 ## v1.1.1
 
 ### Fixed
